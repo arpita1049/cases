@@ -56,12 +56,12 @@ async def get_dashboard(
 
     # Cases by Bureau
     bureau_data = (
-        db.query(Bureau.code, Bureau.name, func.count(Case.id))
+        db.query(Bureau.id, Bureau.code, Bureau.name, func.count(Case.id))
         .join(Case, Case.bureau_id == Bureau.id)
         .group_by(Bureau.id)
         .all()
     )
-    cases_by_bureau = [{"code": code, "name": name, "count": cnt} for code, name, cnt in bureau_data]
+    cases_by_bureau = [{"id": bid, "code": code, "name": name, "count": cnt} for bid, code, name, cnt in bureau_data]
 
     # Needs attention: overdue or near-deadline cases
     attention_cases = (

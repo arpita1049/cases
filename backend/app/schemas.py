@@ -111,6 +111,8 @@ class CaseOut(BaseModel):
     closed_date: Optional[datetime] = None
     source: Optional[str] = None
     reference_number: Optional[str] = None
+    complainant_name: Optional[str] = None
+    complainant_type: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -130,6 +132,8 @@ class CaseCreate(BaseModel):
     due_date: Optional[datetime] = None
     source: Optional[str] = None
     reference_number: Optional[str] = None
+    complainant_name: Optional[str] = None
+    complainant_type: Optional[str] = None
 
 
 class CaseUpdate(BaseModel):
@@ -141,6 +145,8 @@ class CaseUpdate(BaseModel):
     due_date: Optional[datetime] = None
     source: Optional[str] = None
     reference_number: Optional[str] = None
+    complainant_name: Optional[str] = None
+    complainant_type: Optional[str] = None
 
 
 # ── CaseAction ────────────────────────────────────────────────────────────────
@@ -204,6 +210,7 @@ class NotificationOut(BaseModel):
     id: int
     user_id: int
     case_id: Optional[int] = None
+    case: Optional[CaseOut] = None
     notification_type: str
     title: str
     message: str
@@ -266,6 +273,14 @@ class DeadlineRuleCreate(BaseModel):
     warn_before_days: int = 3
 
 
+class DeadlineRuleUpdate(BaseModel):
+    bureau_id: Optional[int] = None
+    category: Optional[str] = None
+    days_to_resolve: Optional[int] = None
+    warn_before_days: Optional[int] = None
+    is_active: Optional[bool] = None
+
+
 # ── Pagination ────────────────────────────────────────────────────────────────
 
 class PaginatedCases(BaseModel):
@@ -280,6 +295,26 @@ class PaginatedInstitutions(BaseModel):
     page: int
     per_page: int
     items: List[InstitutionOut]
+
+
+# ── Bulk Import (Requirement 9) ───────────────────────────────────────────────
+
+class BulkImportRowPreview(BaseModel):
+    row_num: int
+    valid: bool
+    data: dict
+    errors: List[str] = []
+
+
+class BulkPreviewResponse(BaseModel):
+    total_rows: int
+    valid_count: int
+    invalid_count: int
+    rows: List[BulkImportRowPreview]
+
+
+class BulkImportConfirmRequest(BaseModel):
+    cases: List[dict]
 
 
 Token.model_rebuild()

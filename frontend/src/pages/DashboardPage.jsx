@@ -67,6 +67,7 @@ export default function DashboardPage() {
   })).filter(d => d.value > 0);
 
   const chartBureauData = (data?.cases_by_bureau || []).map(b => ({
+    id: b.id,
     name: b.code,
     fullName: b.name,
     cases: b.count,
@@ -111,8 +112,9 @@ export default function DashboardPage() {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
         {/* Donut: Cases by status */}
         <div className="card">
-          <div className="card-header">
+          <div className="card-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <h2 className="card-title">Cases by Status</h2>
+            <span style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>Click segment to filter</span>
           </div>
           <ResponsiveContainer width="100%" height={220}>
             <PieChart>
@@ -124,13 +126,15 @@ export default function DashboardPage() {
                 outerRadius={85}
                 paddingAngle={3}
                 dataKey="value"
+                onClick={(entry) => navigate(`/cases?status=${encodeURIComponent(entry.name)}`)}
+                style={{ cursor: 'pointer' }}
               >
                 {chartStatusData.map((entry, i) => (
                   <Cell key={i} fill={entry.color} />
                 ))}
               </Pie>
               <Tooltip
-                formatter={(val, name) => [val, name]}
+                formatter={(val, name) => [val, `${name} (Click to view)`]}
                 contentStyle={{ borderRadius: 8, fontSize: 13 }}
               />
               <Legend
@@ -144,8 +148,9 @@ export default function DashboardPage() {
 
         {/* Bar: Cases by Bureau */}
         <div className="card">
-          <div className="card-header">
+          <div className="card-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <h2 className="card-title">Cases by Bureau / Cell</h2>
+            <span style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>Click bar to filter</span>
           </div>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={chartBureauData} barSize={28}>
@@ -153,10 +158,16 @@ export default function DashboardPage() {
               <XAxis dataKey="name" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 12 }} axisLine={false} tickLine={false} width={28} />
               <Tooltip
-                formatter={(val, _n, props) => [val, props.payload.fullName]}
+                formatter={(val, _n, props) => [val, `${props.payload.fullName} (Click to view)`]}
                 contentStyle={{ borderRadius: 8, fontSize: 13 }}
               />
-              <Bar dataKey="cases" fill="var(--color-primary)" radius={[4,4,0,0]} />
+              <Bar
+                dataKey="cases"
+                fill="var(--color-primary)"
+                radius={[4,4,0,0]}
+                onClick={(data) => data?.id && navigate(`/cases?bureau_id=${data.id}`)}
+                style={{ cursor: 'pointer' }}
+              />
             </BarChart>
           </ResponsiveContainer>
         </div>

@@ -3,7 +3,7 @@ Notifications router.
 """
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from ..database import get_db
 from ..models import Notification, User
@@ -19,6 +19,7 @@ async def list_notifications(
     current_user: User = Depends(get_current_user),
 ):
     notes = db.query(Notification)\
+        .options(joinedload(Notification.case))\
         .filter(Notification.user_id == current_user.id)\
         .order_by(Notification.created_at.desc())\
         .limit(50)\

@@ -20,6 +20,7 @@ import enum
 class CaseStatus(str, enum.Enum):
     PENDING = "Pending"
     UNDER_PROCESS = "Under Process"
+    ACTION_INITIATED = "Action initiated"
     DISPOSED = "Disposed"
     OVERDUE = "Overdue"
     ESCALATED = "Escalated"
@@ -128,6 +129,8 @@ class Case(Base):
     closed_date = Column(DateTime, nullable=True)
     source = Column(String(100), nullable=True)   # e.g., CPGRAMS, Direct, Portal
     reference_number = Column(String(100), nullable=True)  # External reference (e.g., CPGRAMS ID)
+    complainant_name = Column(String(200), nullable=True)
+    complainant_type = Column(String(100), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -215,6 +218,8 @@ class DeadlineRule(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    bureau = relationship("Bureau")
 
 
 class AuditLog(Base):

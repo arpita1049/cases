@@ -22,6 +22,7 @@ async def list_overlaps(
     review_status: Optional[str] = Query(None),
     match_level: Optional[str] = Query(None),
     institution_id: Optional[int] = Query(None),
+    case_id: Optional[int] = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -32,6 +33,8 @@ async def list_overlaps(
         joinedload(OverlapAlert.case_b).joinedload(Case.bureau),
     )
 
+    if case_id:
+        q = q.filter((OverlapAlert.case_a_id == case_id) | (OverlapAlert.case_b_id == case_id))
     if review_status:
         q = q.filter(OverlapAlert.review_status == review_status)
     if match_level:
@@ -78,7 +81,8 @@ async def review_overlap(
 ):
     """
     Mark an overlap alert as Confirmed Related, Dismissed, or Coordinating.
-    IMPORTANT: This NEVER merges, closes, or affects the underlying cases.
+    IMPORTANT: This NEVER merges, closes, or affects the status of underlying cases.
+    It writes an immutable audit record to both cases' action histories.
     """
     if current_user.role == UserRole.SENIOR_MANAGEMENT:
         raise HTTPException(status_code=403, detail="Read-only access")
@@ -88,17 +92,46 @@ async def review_overlap(
         raise HTTPException(status_code=404, detail="Overlap alert not found")
 
     from datetime import datetime
+    from ..models import CaseAction, ActionType
+    
     alert.review_status = body.review_status
     alert.reviewed_by = current_user.id
     alert.reviewed_at = datetime.utcnow()
     alert.review_notes = body.review_notes
+
+    # Fetch both cases to log action history in both timelines
+    case_a = db.query(Case).options(joinedload(Case.bureau)).filter(Case.id == alert.case_a_id).first()
+    case_b = db.query(Case).options(joinedload(Case.bureau)).filter(Case.id == alert.case_b_id).first()
+
+    status_label = body.review_status.value
+    notes_str = f" Notes: {body.review_notes}" if body.review_notes else ""
+
+    if case_a and case_b:
+        action_a = CaseAction(
+            case_id=case_a.id,
+            user_id=current_user.id,
+            bureau_id=current_user.bureau_id or case_a.bureau_id,
+            action_type=ActionType.REMARK_ADDED,
+            remarks=f"Overlap review: Marked as '{status_label}' regarding linked case {case_b.case_code} ({case_b.bureau.code if case_b.bureau else 'Cell'}). Case remains open and independent.{notes_str}",
+            timestamp=datetime.utcnow(),
+        )
+        action_b = CaseAction(
+            case_id=case_b.id,
+            user_id=current_user.id,
+            bureau_id=current_user.bureau_id or case_b.bureau_id,
+            action_type=ActionType.REMARK_ADDED,
+            remarks=f"Overlap review: Marked as '{status_label}' regarding linked case {case_a.case_code} ({case_a.bureau.code if case_a.bureau else 'Cell'}). Case remains open and independent.{notes_str}",
+            timestamp=datetime.utcnow(),
+        )
+        db.add(action_a)
+        db.add(action_b)
 
     db.add(AuditLog(
         user_id=current_user.id,
         action="OVERLAP_ALERT_REVIEWED",
         entity_type="overlap_alert",
         entity_id=alert_id,
-        details=f'{{"review_status": "{body.review_status}", "notes": "{body.review_notes}"}}',
+        details=f'{{"review_status": "{body.review_status}", "case_a_id": {alert.case_a_id}, "case_b_id": {alert.case_b_id}, "notes": "{body.review_notes}"}}',
         ip_address=request.client.host if request.client else "unknown",
     ))
     db.commit()
@@ -114,19 +147,22 @@ async def run_overlap_detection(
 ):
     """
     Re-runs overlap detection rules on all active cases.
-    Rule 1: Same AICTE Permanent ID, different Bureau, both active.
-    Rule 2: Same category + same institution.
-    Rule 3: Shared reference number prefix.
-    Does NOT auto-merge or auto-close any case.
+    Uses tiered matching (Level 1, 2, 3 including TF-IDF description similarity).
+    Enforces no false duplicate labelling: same institution alone produces at most LOW.
+    NEVER auto-merges or auto-closes any case.
     """
     if current_user.role not in [UserRole.ADMINISTRATOR, UserRole.BUREAU_OFFICER]:
         raise HTTPException(status_code=403, detail="Insufficient permissions")
 
+    import json
     from datetime import datetime
     from collections import defaultdict
+    from ..overlap_engine import evaluate_case_overlap, ACTIVE_STATUSES
 
-    active_statuses = ["Pending", "Under Process", "Overdue", "Escalated"]
-    active_cases = db.query(Case).filter(Case.status.in_(active_statuses)).all()
+    active_cases = db.query(Case).options(
+        joinedload(Case.institution),
+        joinedload(Case.bureau)
+    ).filter(Case.status.in_(ACTIVE_STATUSES)).all()
 
     # Group by institution
     by_inst = defaultdict(list)
@@ -141,7 +177,7 @@ async def run_overlap_detection(
             for j in range(i + 1, len(cases)):
                 ca, cb = cases[i], cases[j]
                 if ca.bureau_id == cb.bureau_id:
-                    continue  # Same bureau – not an overlap
+                    continue  # Same bureau
 
                 # Check if alert already exists
                 exists = db.query(OverlapAlert).filter(
@@ -153,35 +189,21 @@ async def run_overlap_detection(
                 if exists:
                     continue
 
-                # Rule 1: same institution, different bureau
-                rules = ["same_institution_id", "multiple_active_bureaus"]
-                reason = "Both cases involve the same institution and are active in different Bureaus simultaneously."
+                eval_result = evaluate_case_overlap(ca, cb)
+                if not eval_result:
+                    continue
 
-                # Rule 2: same category
-                if ca.category == cb.category:
-                    rules.append("same_category")
-                    reason += " Additionally, both cases share the same complaint category."
+                level, reason, rules, score = eval_result
 
-                # Rule 3: shared reference prefix
-                if ca.reference_number and cb.reference_number:
-                    prefix_a = ca.reference_number.split("-")[0]
-                    prefix_b = cb.reference_number.split("-")[0]
-                    if prefix_a == prefix_b:
-                        rules.append("shared_reference_prefix")
-                        reason += " Shared reference number prefix detected."
-
-                score = 0.5 + (0.15 * len(rules))
-                level = MatchLevel.LOW if score < 0.6 else MatchLevel.MEDIUM if score < 0.8 else MatchLevel.HIGH
-
-                import json
                 alert = OverlapAlert(
                     case_a_id=ca.id,
                     case_b_id=cb.id,
                     match_level=level,
                     reason=reason,
                     match_rules=json.dumps(rules),
-                    similarity_score=round(min(score, 1.0), 2),
+                    similarity_score=score,
                     review_status=ReviewStatus.PENDING,
+                    created_at=datetime.utcnow(),
                 )
                 db.add(alert)
                 new_alerts += 1

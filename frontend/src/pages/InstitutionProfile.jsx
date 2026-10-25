@@ -43,6 +43,7 @@ export default function InstitutionProfile({ institutionId, onBack }) {
   }, {});
 
   const filteredCases = activeTab === 'all' ? cases : cases.filter(c => c.bureau?.code === activeTab);
+  const sortedCases = [...filteredCases].sort((a, b) => new Date(b.received_date) - new Date(a.received_date));
 
   return (
     <div className="page-wrapper">
@@ -68,7 +69,8 @@ export default function InstitutionProfile({ institutionId, onBack }) {
                 {inst.aicte_permanent_id}
               </span>
               <span style={{ fontSize: 13, color: 'var(--color-text-secondary)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                <MapPin size={12} /> {inst.city}, {inst.state} · {inst.region} Region
+                <MapPin size={13} style={{ flexShrink: 0, color: 'var(--color-accent)' }} />
+                <span>{[inst.address, inst.city, inst.state].filter(Boolean).join(', ')} · <strong>{inst.region} Region</strong></span>
               </span>
               {inst.institution_type && (
                 <span style={{ fontSize: 12, background: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 5, padding: '2px 8px' }}>
@@ -147,10 +149,10 @@ export default function InstitutionProfile({ institutionId, onBack }) {
               </tr>
             </thead>
             <tbody>
-              {filteredCases.length === 0 && (
+              {sortedCases.length === 0 && (
                 <tr><td colSpan={6} style={{ textAlign: 'center', padding: 30, color: 'var(--color-text-muted)' }}>No cases found.</td></tr>
               )}
-              {filteredCases.map(c => (
+              {sortedCases.map(c => (
                 <tr key={c.id} onClick={() => setSelectedCase(c)} style={{ cursor: 'pointer' }}>
                   <td><span style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 600, color: 'var(--color-primary)' }}>{c.case_code}</span></td>
                   <td><span style={{ background: 'rgba(30,58,95,.08)', color: 'var(--color-primary)', borderRadius: 5, padding: '2px 8px', fontSize: 12, fontWeight: 600 }}>{c.bureau?.code}</span></td>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Bell, AlertTriangle, Clock, ArrowRight, CheckCheck, Filter } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Bell, AlertTriangle, Clock, ArrowRight, CheckCheck, ExternalLink } from 'lucide-react';
 import { getNotifications, markNotifRead, markAllNotifsRead } from '../api/endpoints';
 import { formatDateTime } from '../utils/format';
 
@@ -11,6 +12,7 @@ const TYPE_CONFIG = {
 };
 
 export default function NotificationsPage() {
+  const navigate = useNavigate();
   const [notifs, setNotifs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeType, setActiveType] = useState('');
@@ -101,45 +103,61 @@ export default function NotificationsPage() {
                 </div>
 
                 {/* Notification items */}
-                {items.map((n, idx) => (
-                  <div
-                    key={n.id}
-                    onClick={() => !n.is_read && markRead(n.id)}
-                    style={{
-                      padding: '14px 20px',
-                      borderBottom: idx < items.length - 1 ? '1px solid var(--color-border)' : 'none',
-                      background: n.is_read ? 'white' : `${cfg.bg}`,
-                      display: 'flex', gap: 14, alignItems: 'flex-start',
-                      cursor: n.is_read ? 'default' : 'pointer',
-                      transition: 'background 150ms',
-                    }}
-                  >
-                    <div style={{
-                      width: 36, height: 36, borderRadius: '50%',
-                      background: cfg.color + '20',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
-                    }}>
-                      <IconComp size={16} color={cfg.color} />
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: n.is_read ? 400 : 700, fontSize: 14, marginBottom: 3 }}>
-                        {n.title}
-                      </div>
-                      <div style={{ fontSize: 13, color: 'var(--color-text-secondary)', marginBottom: 4 }}>
-                        {n.message}
-                      </div>
-                      <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>
-                        {formatDateTime(n.created_at)}
-                      </div>
-                    </div>
-                    {!n.is_read && (
+                {items.map((n, idx) => {
+                  const caseCode = n.case?.case_code || n.title.match(/AICTE-[A-Z0-9-]+/)?.[0] || '';
+                  return (
+                    <div
+                      key={n.id}
+                      onClick={() => !n.is_read && markRead(n.id)}
+                      style={{
+                        padding: '14px 20px',
+                        borderBottom: idx < items.length - 1 ? '1px solid var(--color-border)' : 'none',
+                        background: n.is_read ? 'white' : `${cfg.bg}`,
+                        display: 'flex', gap: 14, alignItems: 'flex-start',
+                        transition: 'background 150ms',
+                      }}
+                    >
                       <div style={{
-                        width: 8, height: 8, borderRadius: '50%',
-                        background: cfg.color, marginTop: 6, flexShrink: 0
-                      }} />
-                    )}
-                  </div>
-                ))}
+                        width: 36, height: 36, borderRadius: '50%',
+                        background: cfg.color + '20',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                      }}>
+                        <IconComp size={16} color={cfg.color} />
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: n.is_read ? 400 : 700, fontSize: 14, marginBottom: 3 }}>
+                          {n.title}
+                        </div>
+                        <div style={{ fontSize: 13, color: 'var(--color-text-secondary)', marginBottom: 4 }}>
+                          {n.message}
+                        </div>
+                        <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>
+                          {formatDateTime(n.created_at)}
+                        </div>
+                      </div>
+                      {caseCode && (
+                        <button
+                          className="btn btn-outline btn-sm"
+                          style={{ alignSelf: 'center', fontSize: 12, padding: '4px 10px', gap: 4 }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!n.is_read) markRead(n.id);
+                            navigate(`/cases?search=${caseCode}`);
+                          }}
+                          aria-label={`View case ${caseCode}`}
+                        >
+                          View Case <ExternalLink size={12} />
+                        </button>
+                      )}
+                      {!n.is_read && (
+                        <div style={{
+                          width: 8, height: 8, borderRadius: '50%',
+                          background: cfg.color, marginTop: 14, flexShrink: 0
+                        }} />
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             );
           })}

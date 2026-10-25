@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Users, Clock, FileText, ShieldCheck, Plus, Eye, EyeOff } from 'lucide-react';
 import {
   getUsers, createUser, updateUser,
-  getBureaus, getDeadlineRules, createDeadlineRule, getAuditLog
+  getBureaus, getDeadlineRules, createDeadlineRule, updateDeadlineRule, getAuditLog
 } from '../api/endpoints';
 import { formatDateTime } from '../utils/format';
 import { useAuth } from '../context/AuthContext';
@@ -141,6 +141,83 @@ function AddRuleModal({ bureaus, onSave, onClose }) {
   );
 }
 
+function EditRuleModal({ rule, bureaus, onSave, onClose }) {
+  const [form, setForm] = useState({
+    bureau_id: rule.bureau_id ? String(rule.bureau_id) : '',
+    category: rule.category || '',
+    days_to_resolve: rule.days_to_resolve,
+    warn_before_days: rule.warn_before_days,
+    is_active: rule.is_active,
+  });
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState('');
+
+  const submit = async () => {
+    setSaving(true);
+    setErr('');
+    try {
+      const payload = {
+        days_to_resolve: parseInt(form.days_to_resolve, 10),
+        warn_before_days: parseInt(form.warn_before_days, 10),
+        is_active: form.is_active,
+      };
+      if (form.bureau_id) payload.bureau_id = parseInt(form.bureau_id, 10);
+      else payload.bureau_id = null;
+      payload.category = form.category || null;
+
+      await updateDeadlineRule(rule.id, payload);
+      onSave();
+    } catch (e) {
+      setErr(e.response?.data?.detail || 'Failed to update rule.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="modal-overlay" role="dialog" aria-modal aria-label="Edit Deadline Rule">
+      <div className="modal">
+        <h2 className="modal-title">Edit Deadline Rule</h2>
+        <p style={{ fontSize: 13, color: 'var(--color-text-secondary)', margin: '4px 0 16px' }}>
+          Configurable resolution timelines. Updates trigger automatic recalculation of due dates and alerts.
+        </p>
+        {err && <div style={{ color: '#DC2626', fontSize: 13, marginBottom: 12 }}>{err}</div>}
+        <div className="form-group">
+          <label className="form-label">Bureau (leave blank for global)</label>
+          <select className="form-select" value={form.bureau_id} onChange={e => setForm(f => ({ ...f, bureau_id: e.target.value }))}>
+            <option value="">Global (all bureaus)</option>
+            {bureaus.map(b => <option key={b.id} value={b.id}>{b.code} – {b.name}</option>)}
+          </select>
+        </div>
+        <div className="form-group">
+          <label className="form-label">Category (leave blank for all categories)</label>
+          <input className="form-input" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))} placeholder="e.g. Student Grievance – Fee Refund" />
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div className="form-group">
+            <label className="form-label">Days to Resolve</label>
+            <input className="form-input" type="number" min={1} value={form.days_to_resolve} onChange={e => setForm(f => ({ ...f, days_to_resolve: e.target.value }))} />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Warn Before (days)</label>
+            <input className="form-input" type="number" min={1} value={form.warn_before_days} onChange={e => setForm(f => ({ ...f, warn_before_days: e.target.value }))} />
+          </div>
+        </div>
+        <div className="form-group">
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
+            <input type="checkbox" checked={form.is_active} onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} />
+            Rule is Active
+          </label>
+        </div>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 16 }}>
+          <button type="button" className="btn btn-outline btn-sm" onClick={onClose} disabled={saving}>Cancel</button>
+          <button type="button" className="btn btn-primary btn-sm" onClick={submit} disabled={saving}>{saving ? 'Saving…' : 'Save Changes'}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('users');
   const [users, setUsers] = useState([]);
@@ -150,6 +227,7 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [showAddUser, setShowAddUser] = useState(false);
   const [showAddRule, setShowAddRule] = useState(false);
+  const [editingRule, setEditingRule] = useState(null);
   const { user: currentUser } = useAuth();
 
   if (currentUser?.role !== 'Administrator') {
@@ -270,9 +348,9 @@ export default function SettingsPage() {
           </div>
           <div className="table-container" style={{ background: 'white', borderRadius: 12, border: '1px solid var(--color-border)' }}>
             <table>
-              <thead><tr><th>Bureau</th><th>Category</th><th>Days to Resolve</th><th>Warn Before</th><th>Status</th></tr></thead>
+              <thead><tr><th>Bureau</th><th>Category</th><th>Days to Resolve</th><th>Warn Before</th><th>Status</th><th>Action</th></tr></thead>
               <tbody>
-                {loading && <tr><td colSpan={5} style={{ textAlign: 'center', padding: 24, color: 'var(--color-text-muted)' }}>Loading…</td></tr>}
+                {loading && <tr><td colSpan={6} style={{ textAlign: 'center', padding: 24, color: 'var(--color-text-muted)' }}>Loading…</td></tr>}
                 {rules.map(r => (
                   <tr key={r.id}>
                     <td style={{ fontWeight: 600, fontSize: 13 }}>{r.bureau?.code || 'Global'}</td>
@@ -280,6 +358,16 @@ export default function SettingsPage() {
                     <td style={{ fontWeight: 700, fontSize: 16 }}>{r.days_to_resolve} <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--color-text-muted)' }}>days</span></td>
                     <td style={{ fontSize: 13 }}>{r.warn_before_days} days before</td>
                     <td><span className={`badge ${r.is_active ? 'badge-disposed' : 'badge-closed'}`}>{r.is_active ? 'Active' : 'Inactive'}</span></td>
+                    <td>
+                      <button
+                        className="btn btn-outline btn-sm"
+                        style={{ padding: '2px 8px', fontSize: 12 }}
+                        onClick={() => setEditingRule(r)}
+                        aria-label={`Edit rule for ${r.bureau?.code || 'Global'}`}
+                      >
+                        Edit
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -327,6 +415,14 @@ export default function SettingsPage() {
           bureaus={bureaus}
           onSave={() => { setShowAddRule(false); fetchData('deadlines'); }}
           onClose={() => setShowAddRule(false)}
+        />
+      )}
+      {editingRule && (
+        <EditRuleModal
+          rule={editingRule}
+          bureaus={bureaus}
+          onSave={() => { setEditingRule(null); fetchData('deadlines'); }}
+          onClose={() => setEditingRule(null)}
         />
       )}
     </div>

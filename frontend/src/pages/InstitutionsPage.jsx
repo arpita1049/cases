@@ -1,19 +1,27 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Search, Building2, ChevronRight } from 'lucide-react';
 import { getInstitutions } from '../api/endpoints';
 import { SkeletonTable } from '../components/Skeleton';
 import InstitutionProfile from './InstitutionProfile';
 
 export default function InstitutionsPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [institutions, setInstitutions] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
-  const [selected, setSelected] = useState(null);
+  const [selected, setSelected] = useState(searchParams.get('id') ? parseInt(searchParams.get('id')) : null);
 
   const PER_PAGE = 15;
+
+  useEffect(() => {
+    const idParam = searchParams.get('id');
+    if (idParam) {
+      setSelected(parseInt(idParam));
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     setLoading(true);
@@ -28,7 +36,15 @@ export default function InstitutionsPage() {
   const totalPages = Math.ceil(total / PER_PAGE);
 
   if (selected) {
-    return <InstitutionProfile institutionId={selected} onBack={() => setSelected(null)} />;
+    return (
+      <InstitutionProfile
+        institutionId={selected}
+        onBack={() => {
+          setSelected(null);
+          setSearchParams({});
+        }}
+      />
+    );
   }
 
   return (
@@ -80,9 +96,9 @@ export default function InstitutionsPage() {
               {institutions.map(inst => (
                 <tr
                   key={inst.id}
-                  onClick={() => setSelected(inst.id)}
+                  onClick={() => { setSelected(inst.id); setSearchParams({ id: inst.id }); }}
                   tabIndex={0}
-                  onKeyDown={e => e.key === 'Enter' && setSelected(inst.id)}
+                  onKeyDown={e => { if (e.key === 'Enter') { setSelected(inst.id); setSearchParams({ id: inst.id }); } }}
                   aria-label={`${inst.name} – view profile`}
                 >
                   <td>

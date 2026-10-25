@@ -8,4 +8,4 @@ services:
       - key: PYTHONIOENCODING
         value: utf-8
       - key: ALLOWED_ORIGINS
-        value: https://complaint.vercel.app
+        value: https://frontend-pxjz.vercel.app,https://complaint.vercel.app

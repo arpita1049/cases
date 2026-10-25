@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, FileText, Building2, AlertTriangle, Bell,
@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { initials } from '../utils/format';
+import { getNotifications } from '../api/endpoints';
 import NotificationsPanel from './NotificationsPanel';
 
 const NAV_SECTIONS = [
@@ -49,9 +50,25 @@ export default function AppLayout({ children }) {
   const [collapsed, setCollapsed] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const userMenuRef = useRef(null);
+
+  const refreshNotifs = useCallback(() => {
+    getNotifications()
+      .then(r => {
+        const count = r.data.filter(n => !n.is_read).length;
+        setUnreadCount(count);
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    refreshNotifs();
+    const interval = setInterval(refreshNotifs, 20000);
+    return () => clearInterval(interval);
+  }, [refreshNotifs]);
 
   // Close menus on outside click
   useEffect(() => {
@@ -103,7 +120,17 @@ export default function AppLayout({ children }) {
                     <span className="nav-item-icon">
                       <Icon size={18} />
                     </span>
-                    <span className="nav-item-label">{label}</span>
+                    <span className="nav-item-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                      <span>{label}</span>
+                      {to === '/notifications' && unreadCount > 0 && (
+                        <span style={{
+                          background: 'var(--color-accent)', color: 'white', borderRadius: 10,
+                          padding: '1px 6px', fontSize: 10, fontWeight: 700, marginLeft: 'auto'
+                        }}>
+                          {unreadCount}
+                        </span>
+                      )}
+                    </span>
                   </NavLink>
                 ))}
               </div>
@@ -150,14 +177,19 @@ export default function AppLayout({ children }) {
             <div style={{ position: 'relative' }} ref={null}>
               <button
                 className="icon-btn"
-                aria-label="Notifications"
+                aria-label={`Notifications (${unreadCount} unread)`}
                 onClick={() => setNotifOpen(o => !o)}
+                id="btn-topbar-notifications"
               >
                 <Bell size={18} />
-                <span className="notification-badge" aria-hidden />
+                {unreadCount > 0 && (
+                  <span className="notification-badge" aria-label={`${unreadCount} unread`}>
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
               </button>
               {notifOpen && (
-                <NotificationsPanel onClose={() => setNotifOpen(false)} />
+                <NotificationsPanel onClose={() => { setNotifOpen(false); refreshNotifs(); }} />
               )}
             </div>
 

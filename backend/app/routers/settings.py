@@ -9,9 +9,10 @@ from fastapi import Query
 
 from ..database import get_db
 from ..models import User, Bureau, DeadlineRule, AuditLog, UserRole
-from ..schemas import UserOut, UserCreate, UserUpdate, BureauOut, DeadlineRuleOut, DeadlineRuleCreate, AuditLogOut
+from ..schemas import UserOut, UserCreate, UserUpdate, BureauOut, DeadlineRuleOut, DeadlineRuleCreate, DeadlineRuleUpdate, AuditLogOut
 from ..auth import get_password_hash
 from ..routers.auth import get_current_user
+from ..deadline_engine import regenerate_deadline_alerts
 
 router = APIRouter(prefix="/settings", tags=["Settings"])
 
@@ -104,14 +105,65 @@ async def list_deadline_rules(db: Session = Depends(get_db), admin: User = Depen
 
 @router.post("/deadline-rules", response_model=DeadlineRuleOut, status_code=201)
 async def create_deadline_rule(
+    request: Request,
     body: DeadlineRuleCreate,
     db: Session = Depends(get_db),
     admin: User = Depends(admin_only),
 ):
     rule = DeadlineRule(**body.model_dump())
     db.add(rule)
+    db.flush()
+    db.add(AuditLog(
+        user_id=admin.id,
+        action="DEADLINE_RULE_CREATED",
+        entity_type="deadline_rule",
+        entity_id=rule.id,
+        details=f'{{"category": "{rule.category}", "days": {rule.days_to_resolve}, "warn_before": {rule.warn_before_days}}}',
+        ip_address=request.client.host if request.client else "unknown",
+    ))
     db.commit()
     db.refresh(rule)
+
+    # Regenerate alerts based on new rule (Requirement 6)
+    regenerate_deadline_alerts(db)
+
+    return DeadlineRuleOut.model_validate(rule)
+
+
+@router.patch("/deadline-rules/{rule_id}", response_model=DeadlineRuleOut)
+async def update_deadline_rule(
+    rule_id: int,
+    request: Request,
+    body: DeadlineRuleUpdate,
+    db: Session = Depends(get_db),
+    admin: User = Depends(admin_only),
+):
+    """
+    Update deadline rule days and approaching warning threshold.
+    Regenerates deadline alerts across active cases (Requirement 6 & Acceptance Test F).
+    """
+    rule = db.query(DeadlineRule).filter(DeadlineRule.id == rule_id).first()
+    if not rule:
+        raise HTTPException(status_code=404, detail="Deadline rule not found")
+
+    changes = body.model_dump(exclude_none=True)
+    for field, value in changes.items():
+        setattr(rule, field, value)
+
+    db.add(AuditLog(
+        user_id=admin.id,
+        action="DEADLINE_RULE_UPDATED",
+        entity_type="deadline_rule",
+        entity_id=rule_id,
+        details=f'{changes}',
+        ip_address=request.client.host if request.client else "unknown",
+    ))
+    db.commit()
+    db.refresh(rule)
+
+    # Regenerate alerts based on updated rule
+    regenerate_deadline_alerts(db)
+
     return DeadlineRuleOut.model_validate(rule)
 
 

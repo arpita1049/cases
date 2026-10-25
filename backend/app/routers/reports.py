@@ -4,7 +4,7 @@ Analytics & Reports router.
 
 from typing import Optional
 from datetime import datetime, timedelta
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
@@ -36,28 +36,29 @@ async def reports_summary(
 
     total = q.count()
     by_status = {s.value: 0 for s in CaseStatus}
-    for status, cnt in db.query(Case.status, func.count(Case.id)).group_by(Case.status).all():
-        by_status[status.value] = cnt
+    for status, cnt in q.with_entities(Case.status, func.count(Case.id)).group_by(Case.status).all():
+        status_val = status.value if hasattr(status, 'value') else status
+        by_status[status_val] = cnt
 
     disposed = by_status.get("Disposed", 0)
     disposal_rate = round((disposed / total * 100), 1) if total > 0 else 0
 
-    # Ageing buckets (days since received)
+    # Ageing buckets: (0-7, 8-15, 16-30, 30+ days) per Requirement 5
     now = datetime.utcnow()
     all_cases = q.all()
-    ageing = {"0-15": 0, "16-30": 0, "31-60": 0, "60+": 0}
+    ageing = {"0-7": 0, "8-15": 0, "16-30": 0, "30+": 0}
     for c in all_cases:
-        if c.status == CaseStatus.DISPOSED:
+        if c.status in [CaseStatus.DISPOSED, CaseStatus.CLOSED]:
             continue
         age = (now - c.received_date).days
-        if age <= 15:
-            ageing["0-15"] += 1
+        if age <= 7:
+            ageing["0-7"] += 1
+        elif age <= 15:
+            ageing["8-15"] += 1
         elif age <= 30:
             ageing["16-30"] += 1
-        elif age <= 60:
-            ageing["31-60"] += 1
         else:
-            ageing["60+"] += 1
+            ageing["30+"] += 1
 
     return {
         "total_cases": total,
@@ -65,6 +66,35 @@ async def reports_summary(
         "disposal_rate_pct": disposal_rate,
         "ageing_distribution": ageing,
     }
+
+
+from pydantic import BaseModel
+from ..models import AuditLog
+
+class ExportLogRequest(BaseModel):
+    export_type: str
+    report_name: str
+    filters_applied: Optional[str] = None
+
+
+@router.post("/log-export")
+async def log_export(
+    body: ExportLogRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Log report exports in Audit Log (Requirement 7)."""
+    filters_str = body.filters_applied or "none"
+    db.add(AuditLog(
+        user_id=current_user.id,
+        action=f"REPORT_EXPORTED_{body.export_type.upper()}",
+        entity_type="report",
+        details=f'{{"report": "{body.report_name}", "filters": "{filters_str}"}}',
+        ip_address=request.client.host if request.client else "unknown",
+    ))
+    db.commit()
+    return {"message": "Export logged"}
 
 
 @router.get("/monthly")

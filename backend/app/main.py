@@ -20,13 +20,15 @@ from .database import engine, SessionLocal, Base
 from .models import *  # ensure all models are registered before create_all
 from .routers import auth, cases, institutions, dashboard, overlaps, notifications, reports, settings
 from .seed import seed_database
+from .deadline_engine import regenerate_deadline_alerts
 
 # Create all tables
 Base.metadata.create_all(bind=engine)
 
-# Seed demo data on startup
+# Seed demo data on startup and regenerate proactive deadline alerts (Requirement 6)
 with SessionLocal() as db:
     seed_database(db)
+    regenerate_deadline_alerts(db)
 
 app = FastAPI(
     title="AICTE Complaint Monitoring Dashboard",

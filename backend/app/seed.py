@@ -1,4 +1,4 @@
-﻿"""
+"""
 Database seed script with clearly labelled SYNTHETIC demo data.
 ~15 institutions, ~60 cases, action histories, overlap alerts.
 
@@ -218,12 +218,12 @@ def seed_database(db: Session) -> None:
     case_objects = []
     case_counter = {code: 1 for code in bureau_map}
 
-    # ?? Deterministic overlap seed cases (AICTE-12345) ??????????????????????
-    # Case A: PGRC case for ABC Institute
+    # ── Deterministic overlap seed cases (AICTE-12345) ──────────────────────
     abc_inst = institution_map["AICTE-12345"]
     pgrc_bureau = bureau_map["PGRC"]
     rb_bureau = bureau_map["RB"]
 
+    # Case A: PGRC case for ABC Institute ("Under process")
     case_abc_pgrc = Case(
         case_code="PGRC-2025-0001",
         institution_id=abc_inst.id,
@@ -241,13 +241,13 @@ def seed_database(db: Session) -> None:
     db.flush()
     case_counter["PGRC"] = 2
 
-    # Case B: RB case for ABC Institute (different issue ? regulation)
+    # Case B: RB case for ABC Institute ("Action initiated")
     case_abc_rb = Case(
         case_code="RB-2025-0001",
         institution_id=abc_inst.id,
         category="Regulation Violation - Seat Intake",
         description="Inspection report (Ref: RB-INSP-2025-112) indicates ABC Institute of Technology admitted 60 additional students to the B.Tech program beyond the approved intake of 240. Compliance notice issued on 15-Oct-2025.",
-        status=CaseStatus.PENDING,
+        status=CaseStatus.ACTION_INITIATED,
         bureau_id=rb_bureau.id,
         officer_id=user_map["rb_off1"].id,
         received_date=now - timedelta(days=10),
@@ -261,10 +261,116 @@ def seed_database(db: Session) -> None:
 
     case_objects.extend([case_abc_pgrc, case_abc_rb])
 
-    # ?? Random cases for all institutions ?????????????????????????????????
+    # ── Seed 3 institutions with 2 unrelated cases across different bureaus (Requirement 3) ──
+    # Inst 1: Sunrise Engineering College (AICTE-23456) across EOA and FDB
+    inst_sunrise = institution_map["AICTE-23456"]
+    case_sunrise_eoa = Case(
+        case_code="EOA-2025-0001",
+        institution_id=inst_sunrise.id,
+        category="Annual Approval Discrepancy",
+        description="Discrepancy observed in faculty cadastral map submitted during Extension of Approval for 2025-26.",
+        status=CaseStatus.UNDER_PROCESS,
+        bureau_id=bureau_map["EOA"].id,
+        officer_id=user_map["eoa_off1"].id,
+        received_date=now - timedelta(days=80),
+        due_date=now + timedelta(days=15),
+        source="Portal",
+        reference_number="EOA-APP-2025-998",
+    )
+    case_sunrise_fdb = Case(
+        case_code="FDB-2025-0001",
+        institution_id=inst_sunrise.id,
+        category="Faculty Qualification Non-compliance",
+        description="Faculty development program audit noted two adjunct lecturers lacking mandatory AICTE pedagogical training certification.",
+        status=CaseStatus.PENDING,
+        bureau_id=bureau_map["FDB"].id,
+        officer_id=user_map["fdb_off1"].id,
+        received_date=now - timedelta(days=15),
+        due_date=now + timedelta(days=35),
+        source="Direct",
+        reference_number="FDB-AUDIT-2025-412",
+    )
+    db.add(case_sunrise_eoa)
+    db.add(case_sunrise_fdb)
+    db.flush()
+    case_counter["EOA"] = 2
+    case_counter["FDB"] = 2
+    case_objects.extend([case_sunrise_eoa, case_sunrise_fdb])
+
+    # Inst 2: Coastal Institute (AICTE-34567) across PGRC and IPC
+    inst_coastal = institution_map["AICTE-34567"]
+    case_coastal_pgrc = Case(
+        case_code="PGRC-2025-0002",
+        institution_id=inst_coastal.id,
+        category="Student Grievance - Harassment",
+        description="Complaint regarding hostel accommodation dispute and alleged unfair disciplinary warning.",
+        status=CaseStatus.UNDER_PROCESS,
+        bureau_id=bureau_map["PGRC"].id,
+        officer_id=user_map["pgrc_off1"].id,
+        received_date=now - timedelta(days=65),
+        due_date=now + timedelta(days=10),
+        source="CPGRAMS",
+        reference_number="CPGRAMS-2025-AICTE-10044",
+    )
+    case_coastal_ipc = Case(
+        case_code="IPC-2025-0001",
+        institution_id=inst_coastal.id,
+        category="Infrastructure - Fire Safety",
+        description="Local municipality inspection reported pending renewal of fire safety clearance for laboratory block.",
+        status=CaseStatus.PENDING,
+        bureau_id=bureau_map["IPC"].id,
+        officer_id=user_map["ipc_off1"].id,
+        received_date=now - timedelta(days=12),
+        due_date=now + timedelta(days=25),
+        source="Inspection",
+        reference_number="IPC-FIRE-2025-871",
+    )
+    db.add(case_coastal_pgrc)
+    db.add(case_coastal_ipc)
+    db.flush()
+    case_counter["PGRC"] = 3
+    case_counter["IPC"] = 2
+    case_objects.extend([case_coastal_pgrc, case_coastal_ipc])
+
+    # Inst 3: Rajputana Institute of Pharmacy (AICTE-67890) across RB and LEGAL
+    inst_rajputana = institution_map["AICTE-67890"]
+    case_rajputana_rb = Case(
+        case_code="RB-2025-0002",
+        institution_id=inst_rajputana.id,
+        category="Accreditation Mismatch",
+        description="Advertisement brochure displays unauthorized NBA accreditation badge for diploma program.",
+        status=CaseStatus.UNDER_PROCESS,
+        bureau_id=bureau_map["RB"].id,
+        officer_id=user_map["rb_off1"].id,
+        received_date=now - timedelta(days=70),
+        due_date=now + timedelta(days=18),
+        source="Direct",
+        reference_number="RB-ADV-2025-231",
+    )
+    case_rajputana_legal = Case(
+        case_code="LEGAL-2025-0001",
+        institution_id=inst_rajputana.id,
+        category="Court Order Compliance",
+        description="High Court writ petition order concerning land demarcation compliance submitted by trust.",
+        status=CaseStatus.PENDING,
+        bureau_id=bureau_map["LEGAL"].id,
+        officer_id=user_map["legal_off1"].id,
+        received_date=now - timedelta(days=8),
+        due_date=now + timedelta(days=6),
+        source="Court",
+        reference_number="LEGAL-HC-2025-099",
+    )
+    db.add(case_rajputana_rb)
+    db.add(case_rajputana_legal)
+    db.flush()
+    case_counter["RB"] = 3
+    case_counter["LEGAL"] = 2
+    case_objects.extend([case_rajputana_rb, case_rajputana_legal])
+
+    # ── Random cases for remaining institutions (52 cases to make 60 total) ──
     rng = random.Random(42)  # Fixed seed for reproducibility
 
-    for i in range(58):
+    for i in range(52):
         tpl = rng.choice(CASE_TEMPLATES)
         category, description, bureau_code, source = tpl
         bureau = bureau_map[bureau_code]
@@ -399,55 +505,51 @@ def seed_database(db: Session) -> None:
 
     db.commit()
 
-    # 7. Overlap Alerts
-    # Primary overlap: ABC Institute PGRC + RB (different issues, same institution)
-    overlap1 = OverlapAlert(
-        case_a_id=case_abc_pgrc.id,
-        case_b_id=case_abc_rb.id,
-        match_level=MatchLevel.HIGH,
-        reason="Both cases involve the same institution (AICTE-12345: ABC Institute of Technology) and are active in different Bureaus (PGRC, RB) simultaneously.",
-        match_rules='["same_institution_id", "multiple_active_bureaus"]',
-        similarity_score=0.82,
-        review_status=ReviewStatus.PENDING,
-    )
-    db.add(overlap1)
+    # 7. Overlap Alerts (generated via overlap engine)
+    from .overlap_engine import evaluate_case_overlap
+    import json
 
-    # A few more overlaps for variety (using random case pairs from same institution)
-    from collections import defaultdict
-    inst_cases = defaultdict(list)
-    for c in case_objects:
-        inst_cases[c.institution_id].append(c)
+    # Primary flagship overlap: ABC Institute PGRC + RB (High match level, reason includes 'same AICTE ID across PGRC and RB')
+    res_abc = evaluate_case_overlap(case_abc_pgrc, case_abc_rb)
+    if res_abc:
+        lvl, rsn, rls, scr = res_abc
+        overlap_abc = OverlapAlert(
+            case_a_id=case_abc_pgrc.id,
+            case_b_id=case_abc_rb.id,
+            match_level=lvl,
+            reason=rsn,
+            match_rules=json.dumps(rls),
+            similarity_score=scr,
+            review_status=ReviewStatus.PENDING,
+            created_at=datetime.utcnow(),
+        )
+        db.add(overlap_abc)
 
-    overlap_count = 0
-    for inst_id, cases in inst_cases.items():
-        if inst_id == abc_inst.id:
-            continue  # Already handled
-        if len(cases) >= 2:
-            # Look for cases in different bureaus
-            bureau_case_map = defaultdict(list)
-            for c in cases:
-                bureau_case_map[c.bureau_id].append(c)
-            bureau_ids = list(bureau_case_map.keys())
-            if len(bureau_ids) >= 2 and overlap_count < 4:
-                ca = bureau_case_map[bureau_ids[0]][0]
-                cb = bureau_case_map[bureau_ids[1]][0]
-                levels = [MatchLevel.LOW, MatchLevel.MEDIUM, MatchLevel.HIGH]
-                level = rng.choice(levels)
-                review_st = rng.choice([ReviewStatus.PENDING, ReviewStatus.CONFIRMED, ReviewStatus.DISMISSED])
-                oa = OverlapAlert(
-                    case_a_id=ca.id,
-                    case_b_id=cb.id,
-                    match_level=level,
-                    reason=f"Both cases involve the same institution and are active in different Bureaus simultaneously.",
-                    match_rules='["same_institution_id", "multiple_active_bureaus"]',
-                    similarity_score=round(rng.uniform(0.3, 0.95), 2),
-                    review_status=review_st,
-                    reviewed_by=user_map["admin"].id if review_st != ReviewStatus.PENDING else None,
-                    reviewed_at=datetime.utcnow() - timedelta(days=rng.randint(1, 10)) if review_st != ReviewStatus.PENDING else None,
-                    review_notes="Reviewed and confirmed as separate independent complaints." if review_st == ReviewStatus.CONFIRMED else None,
-                )
-                db.add(oa)
-                overlap_count += 1
+    # 3 institutions with unrelated cases across different bureaus (Requirement 3: strictly LOW)
+    unrelated_pairs = [
+        (case_sunrise_eoa, case_sunrise_fdb, ReviewStatus.PENDING),
+        (case_coastal_pgrc, case_coastal_ipc, ReviewStatus.CONFIRMED),
+        (case_rajputana_rb, case_rajputana_legal, ReviewStatus.DISMISSED),
+    ]
+
+    for ca, cb, rev_st in unrelated_pairs:
+        res = evaluate_case_overlap(ca, cb)
+        if res:
+            lvl, rsn, rls, scr = res
+            oa = OverlapAlert(
+                case_a_id=ca.id,
+                case_b_id=cb.id,
+                match_level=lvl,  # Low match
+                reason=rsn,
+                match_rules=json.dumps(rls),
+                similarity_score=scr,
+                review_status=rev_st,
+                reviewed_by=user_map["admin"].id if rev_st != ReviewStatus.PENDING else None,
+                reviewed_at=datetime.utcnow() - timedelta(days=2) if rev_st != ReviewStatus.PENDING else None,
+                review_notes="Verified as distinct matters handled by respective bureaus." if rev_st == ReviewStatus.CONFIRMED else ("Dismissed - no mutual bureau coordination required." if rev_st == ReviewStatus.DISMISSED else None),
+                created_at=datetime.utcnow() - timedelta(days=3),
+            )
+            db.add(oa)
 
     db.commit()
 

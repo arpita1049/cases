@@ -14,6 +14,8 @@ export const createCase = (data) => api.post('/cases', data);
 export const updateCase = (id, data) => api.patch(`/cases/${id}`, data);
 export const getCaseActions = (id) => api.get(`/cases/${id}/actions`);
 export const addCaseAction  = (id, data) => api.post(`/cases/${id}/actions`, data);
+export const previewBulkImport = (formData) => api.post('/cases/bulk-import/preview', formData);
+export const confirmBulkImport = (data) => api.post('/cases/bulk-import/confirm', data);
 
 // Institutions
 export const getInstitutions = (params) => api.get('/institutions', { params });
@@ -36,12 +38,14 @@ export const getReportSummary  = (params) => api.get('/reports/summary', { param
 export const getMonthlyReport  = (params) => api.get('/reports/monthly', { params });
 export const getWorkloadReport = () => api.get('/reports/workload');
 export const getOverlapReport  = () => api.get('/reports/overlap-report');
+export const logReportExport   = (data) => api.post('/reports/log-export', data);
 
 // Settings
-export const getUsers        = () => api.get('/settings/users');
-export const createUser      = (data) => api.post('/settings/users', data);
-export const updateUser      = (id, data) => api.patch(`/settings/users/${id}`, data);
-export const getBureaus      = () => api.get('/settings/bureaus');
-export const getDeadlineRules = () => api.get('/settings/deadline-rules');
+export const getUsers          = () => api.get('/settings/users');
+export const createUser        = (data) => api.post('/settings/users', data);
+export const updateUser        = (id, data) => api.patch(`/settings/users/${id}`, data);
+export const getBureaus        = () => api.get('/settings/bureaus');
+export const getDeadlineRules  = () => api.get('/settings/deadline-rules');
 export const createDeadlineRule = (data) => api.post('/settings/deadline-rules', data);
-export const getAuditLog     = (params) => api.get('/settings/audit-log', { params });
+export const updateDeadlineRule = (id, data) => api.patch(`/settings/deadline-rules/${id}`, data);
+export const getAuditLog       = (params) => api.get('/settings/audit-log', { params });

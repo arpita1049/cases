@@ -1,12 +1,14 @@
 /** Status badge utilities */
 
 export const STATUS_CONFIG = {
-  'Pending':      { className: 'badge-pending',   dot: '#F59E0B' },
-  'Under Process':{ className: 'badge-process',   dot: '#3B82F6' },
-  'Disposed':     { className: 'badge-disposed',  dot: '#16A34A' },
-  'Overdue':      { className: 'badge-overdue',   dot: '#DC2626' },
-  'Escalated':    { className: 'badge-escalated', dot: '#DC2626' },
-  'Closed':       { className: 'badge-closed',    dot: '#6B7280' },
+  'Pending':          { className: 'badge-pending',   dot: '#F59E0B' },
+  'Under Process':    { className: 'badge-process',   dot: '#3B82F6' },
+  'Action initiated': { className: 'badge-process',   dot: '#0F9D8A' },
+  'Action Initiated': { className: 'badge-process',   dot: '#0F9D8A' },
+  'Disposed':         { className: 'badge-disposed',  dot: '#16A34A' },
+  'Overdue':          { className: 'badge-overdue',   dot: '#DC2626' },
+  'Escalated':        { className: 'badge-escalated', dot: '#DC2626' },
+  'Closed':           { className: 'badge-closed',    dot: '#6B7280' },
 };
 
 export const MATCH_CONFIG = {
