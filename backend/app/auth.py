@@ -8,8 +8,10 @@ from typing import Optional
 from jose import JWTError, jwt
 import bcrypt
 
+import os
+
 # ── Config ───────────────────────────────────────────────────────────────────
-SECRET_KEY = "aicte-dashboard-dev-secret-key-change-in-production"
+SECRET_KEY = os.getenv("SECRET_KEY", "aicte-dashboard-dev-secret-key-change-in-production")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 480  # 8 hours
 

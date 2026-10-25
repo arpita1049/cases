@@ -11,6 +11,7 @@ from ..database import get_db
 from ..models import User, AuditLog
 from ..schemas import Token, LoginRequest, UserOut
 from ..auth import verify_password, create_access_token, decode_access_token, ACCESS_TOKEN_EXPIRE_MINUTES
+import json
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/token")
@@ -42,7 +43,7 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
             user_id=None,
             action="LOGIN_FAILED",
             entity_type="auth",
-            details=f'{{"username": "{form_data.username}"}}',
+            details=json.dumps({"username": form_data.username}),
             ip_address=request.client.host if request.client else "unknown",
         ))
         db.commit()
@@ -57,7 +58,7 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
         user_id=user.id,
         action="LOGIN_SUCCESS",
         entity_type="auth",
-        details=f'{{"role": "{user.role.value}"}}',
+        details=json.dumps({"role": user.role.value}),
         ip_address=request.client.host if request.client else "unknown",
     ))
     db.commit()
@@ -74,7 +75,7 @@ async def login_json(request: Request, body: LoginRequest, db: Session = Depends
             user_id=None,
             action="LOGIN_FAILED",
             entity_type="auth",
-            details=f'{{"username": "{body.username}"}}',
+            details=json.dumps({"username": body.username}),
             ip_address=request.client.host if request.client else "unknown",
         ))
         db.commit()
@@ -88,7 +89,7 @@ async def login_json(request: Request, body: LoginRequest, db: Session = Depends
         user_id=user.id,
         action="LOGIN_SUCCESS",
         entity_type="auth",
-        details=f'{{"role": "{user.role.value}"}}',
+        details=json.dumps({"role": user.role.value}),
         ip_address=request.client.host if request.client else "unknown",
     ))
     db.commit()

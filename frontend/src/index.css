@@ -1,4 +1,6 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 @import "tailwindcss";
+
 
 /* ── Design System Variables ───────────────────────────────────────────────── */
 :root {
@@ -39,9 +41,6 @@
   --shadow-card-hover: 0 4px 12px 0 rgba(30,58,95,.10);
   --transition:    150ms cubic-bezier(0.4, 0, 0.2, 1);
 }
-
-/* ── Google Fonts ──────────────────────────────────────────────────────────── */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
 /* ── Base ──────────────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; }

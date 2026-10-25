@@ -2,8 +2,16 @@
 AICTE Integrated Complaint Monitoring Dashboard - FastAPI main application.
 SIH 2026, Problem Statement SIH26264.
 
-⚠️  ALL DEMO DATA IS SYNTHETIC AND DOES NOT REPRESENT OFFICIAL AICTE STATISTICS.
+All demo data is SYNTHETIC and does not represent official AICTE statistics.
 """
+
+import sys
+import os
+
+# Ensure UTF-8 output on Windows (cp1252) and other non-UTF platforms
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -30,13 +38,34 @@ app = FastAPI(
 )
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
+# Allow all Vercel deployments (production & branch previews), Render services, and localhost
+_extra = os.getenv("ALLOWED_ORIGINS", "").strip()
+_origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:4173",
+    "http://127.0.0.1:4173",
+    "http://localhost:3000",
+]
+
+if _extra == "*":
+    # If wildcard is requested, use regex to allow any origin while supporting credentials
+    _origin_regex = r".*"
+    _origins = []
+else:
+    if _extra:
+        _origins.extend([o.strip() for o in _extra.split(",") if o.strip()])
+    _origin_regex = r"^https?://([a-zA-Z0-9-]+\.)*(vercel\.app|onrender\.com)(:\d+)?$"
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=_origins,
+    allow_origin_regex=_origin_regex,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 # ── Routers ───────────────────────────────────────────────────────────────────
 prefix = "/api"

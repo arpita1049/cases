@@ -16,21 +16,47 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [slowNotice, setSlowNotice] = useState(false);
   const [error, setError] = useState('');
   const { login } = useAuth();
   const navigate = useNavigate();
+
+  const isMissingApiUrl =
+    !import.meta.env.VITE_API_URL &&
+    typeof window !== 'undefined' &&
+    window.location.hostname !== 'localhost' &&
+    window.location.hostname !== '127.0.0.1';
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
+    setSlowNotice(false);
+
+    // After 3.5s show notice in case backend is spinning up on Render free tier
+    const timer = setTimeout(() => setSlowNotice(true), 3500);
+
     try {
       await login(username.trim(), password);
+      clearTimeout(timer);
       navigate('/');
     } catch (err) {
-      setError(err.response?.data?.detail || 'Login failed. Please check your credentials.');
+      clearTimeout(timer);
+      let msg = err.response?.data?.detail;
+      if (!msg) {
+        if (err.message && err.message !== 'Network Error') {
+          msg = err.message;
+        } else if (err.code === 'ERR_NETWORK' || err.message === 'Network Error') {
+          msg = 'Unable to connect to backend API. If deployed on Render free tier, the server may take ~45s to wake up. Also make sure VITE_API_URL is configured in Vercel.';
+        } else {
+          msg = 'Login failed. Please check your credentials.';
+        }
+      }
+      setError(msg);
     } finally {
+      clearTimeout(timer);
       setLoading(false);
+      setSlowNotice(false);
     }
   };
 
@@ -103,6 +129,26 @@ export default function LoginPage() {
             Use demo credentials below or enter your own.
           </p>
 
+          {/* Vercel Environment Variable Warning Banner */}
+          {isMissingApiUrl && (
+            <div style={{
+              background: '#FFFBEB',
+              border: '1px solid #FCD34D',
+              borderRadius: 8,
+              padding: '12px 14px',
+              marginBottom: 20,
+              fontSize: 12.5,
+              color: '#92400E',
+              lineHeight: 1.5,
+              textAlign: 'left'
+            }}>
+              <div style={{ fontWeight: 600, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <AlertCircle size={15} color="#D97706" /> Configuration Required on Vercel
+              </div>
+              <code>VITE_API_URL</code> environment variable is not set. In your <strong>Vercel Dashboard → Project Settings → Environment Variables</strong>, set <code>VITE_API_URL</code> to your deployed FastAPI backend URL (e.g. <code>https://aicte-dashboard-api.onrender.com</code>) and redeploy.
+            </div>
+          )}
+
           {/* Demo role picker */}
           <div style={{
             background: 'var(--color-bg)', borderRadius: 10, padding: 14,
@@ -138,9 +184,11 @@ export default function LoginPage() {
                 background: 'rgba(220,38,38,.08)', border: '1px solid rgba(220,38,38,.25)',
                 borderRadius: 8, padding: '10px 14px', marginBottom: 18,
                 display: 'flex', alignItems: 'center', gap: 8,
-                fontSize: 13, color: 'var(--color-status-overdue)'
+                fontSize: 13, color: 'var(--color-status-overdue)',
+                lineHeight: 1.4,
               }}>
-                <AlertCircle size={15} /> {error}
+                <AlertCircle size={16} style={{ flexShrink: 0 }} />
+                <span>{error}</span>
               </div>
             )}
 
@@ -196,6 +244,12 @@ export default function LoginPage() {
             >
               {loading ? 'Signing in…' : 'Sign in'}
             </button>
+
+            {slowNotice && loading && (
+              <p style={{ marginTop: 12, fontSize: 12, color: 'var(--color-text-secondary)', textAlign: 'center', lineHeight: 1.4 }}>
+                ⏳ Connecting to backend... If the backend server is waking up on a free instance, this can take up to 45 seconds.
+              </p>
+            )}
           </form>
 
           <p style={{ marginTop: 24, fontSize: 12, color: 'var(--color-text-muted)', textAlign: 'center' }}>
